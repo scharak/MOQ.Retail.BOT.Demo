@@ -1,0 +1,9 @@
+﻿namespace MOQ.Retail.BOT.Demo.Services
+{
+    public class BingSpellCheckSuggestion
+    {
+        public string Suggestion { get; set; }
+
+        public double Score { get; set; }
+    }
+}

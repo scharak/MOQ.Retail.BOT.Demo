@@ -7,12 +7,20 @@ using System.Web.Http;
 using System.Web.Http.Description;
 using Microsoft.Bot.Connector;
 using Newtonsoft.Json;
+using MOQ.Retail.BOT.Demo.Services;
+using MOQ.Retail.BOT.Demo.Dialogs;
+using Microsoft.Bot.Builder.Dialogs;
+using System.Diagnostics;
+using System.Web.Configuration;
 
 namespace MOQ.Retail.BOT.Demo
 {
     [BotAuthentication]
     public class MessagesController : ApiController
     {
+        private static readonly bool IsSpellCorrectionEnabled = bool.Parse(WebConfigurationManager.AppSettings["IsSpellCorrectionEnabled"]);
+        private readonly BingSpellCheckService spellService = new BingSpellCheckService();
+
         /// <summary>
         /// POST: api/Messages
         /// Receive a message from a user and reply to it
@@ -21,18 +29,25 @@ namespace MOQ.Retail.BOT.Demo
         {
             if (activity.Type == ActivityTypes.Message)
             {
-                ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
-                // calculate something for us to return
-                int length = (activity.Text ?? string.Empty).Length;
+                if (IsSpellCorrectionEnabled)
+                {
+                    try
+                    {
+                        activity.Text = await this.spellService.GetCorrectedTextAsync(activity.Text);
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.TraceError(ex.ToString());
+                    }
+                }
 
-                // return our reply to the user
-                Activity reply = activity.CreateReply($"You sent {activity.Text} which was {length} characters");
-                await connector.Conversations.ReplyToActivityAsync(reply);
+                await Conversation.SendAsync(activity, () => new RootLuisDialog());
             }
             else
             {
-                HandleSystemMessage(activity);
+                this.HandleSystemMessage(activity);
             }
+
             var response = Request.CreateResponse(HttpStatusCode.OK);
             return response;
         }
